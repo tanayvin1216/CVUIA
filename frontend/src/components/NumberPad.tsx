@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 
+import { AdaptiveButton } from "@/components/AdaptiveButton";
+
 const MAX_LENGTH = 12;
 
 type Key =
@@ -49,48 +51,23 @@ export function NumberPad() {
 
       <div className="grid grid-cols-3 gap-3">
         {KEYS.map((key, idx) => (
-          <PadButton
+          <AdaptiveButton
             key={keyId(key, idx)}
             onClick={() => press(key)}
-            label={labelFor(key)}
             variant={key.kind === "digit" || key.kind === "dot" ? "primary" : "muted"}
-          />
+          >
+            {labelFor(key)}
+          </AdaptiveButton>
         ))}
-        <PadButton
+        <AdaptiveButton
           onClick={() => press({ kind: "clear" })}
-          label="Clear"
           variant="accent"
           className="col-span-3"
-        />
+        >
+          Clear
+        </AdaptiveButton>
       </div>
     </div>
-  );
-}
-
-interface PadButtonProps {
-  label: string;
-  onClick: () => void;
-  variant: "primary" | "muted" | "accent";
-  className?: string;
-}
-
-function PadButton({ label, onClick, variant, className }: PadButtonProps) {
-  const base =
-    "flex items-center justify-center rounded-md border font-mono text-2xl tabular-nums transition-colors duration-100 select-none";
-  const variants = {
-    primary: "border-ink/15 bg-paper text-ink hover:bg-ink/5 active:bg-ink/10",
-    muted: "border-ink/10 bg-ink/5 text-ink/70 hover:bg-ink/10 active:bg-ink/15",
-    accent: "border-accent/30 bg-accent/10 text-accent hover:bg-accent/20 active:bg-accent/25",
-  } as const;
-  const size = "min-h-[4.5rem]";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${base} ${variants[variant]} ${size} ${className ?? ""}`.trim()}
-    >
-      {label}
-    </button>
   );
 }
 
