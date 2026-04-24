@@ -1,8 +1,7 @@
-"""Webcam capture loop + MediaPipe inference.
+"""Webcam capture loop + MediaPipe inference + debug overlay.
 
-Step 8 (this commit): integrates the HandTracker — each frame is converted to
-RGB, passed to the tracker, and the number of detected hands is logged for
-sanity-checking. Drawing the landmarks on the debug window is step 9.
+Step 9 (this commit): render the 21-point hand skeleton and bounding box on
+the cv2 debug window using overlays.draw_hands.
 """
 
 from __future__ import annotations
@@ -13,6 +12,7 @@ import time
 import cv2
 
 from app.hand_tracker import HandTracker
+from app.overlays import draw_hands
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 timestamp_ms = int((time.perf_counter() - start) * 1000)
                 hands = tracker.process(rgb, timestamp_ms)
+                draw_hands(frame, hands)
 
                 now = time.perf_counter()
                 dt = now - last_tick
