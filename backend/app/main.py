@@ -1,8 +1,9 @@
 """FastAPI entrypoint.
 
-Step 18 (this commit): /ws/tremor broadcast. A background capture thread feeds
-a shared TremorAnalyzer; the WebSocket handler samples the analyzer's metrics
-at ~20 Hz and pushes TremorPayload JSON to each connected client.
+Step 19 (this commit): runtime configuration is loaded from env vars
+(app.config.settings). The magnitude → level mapping lives here: level is
+clamp(magnitude / tremor_threshold, 0, 1), letting the frontend consume a
+single normalized scalar.
 """
 
 from __future__ import annotations
@@ -18,21 +19,20 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from app import __version__
 from app.capture import run_capture
+from app.config import settings
 from app.hand_tracker import TargetPoint
 from app.schema import HealthPayload, TremorPayload
 from app.tremor import TremorAnalyzer
 
 log = logging.getLogger(__name__)
 
-WS_RATE_HZ = 20.0
-CAMERA_INDEX = 0
-
 
 class CaptureState:
     """Thread-safe container for analyzer state updated by the capture loop."""
 
-    def __init__(self) -> None:
-        self.analyzer = TremorAnalyzer()
+    def __init__(self, window_seconds: float, threshold: float) -> None:
+        self.analyzer = TremorAnalyzer(window_seconds=window_seconds)
+        self.threshold = threshold
         self.latest_ts: float = 0.0
         self._lock = threading.Lock()
 
@@ -45,8 +45,9 @@ class CaptureState:
         with self._lock:
             m = self.analyzer.metrics()
             ts = self.latest_ts
+        level = 0.0 if self.threshold <= 0 else min(m.magnitude / self.threshold, 1.0)
         return TremorPayload(
-            level=0.0,  # normalization vs threshold is wired in step 19
+            level=level,
             magnitude=m.magnitude,
             frequency=m.frequency,
             hand=m.hand,
@@ -57,12 +58,15 @@ class CaptureState:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    state = CaptureState()
+    state = CaptureState(
+        window_seconds=settings.window_seconds,
+        threshold=settings.tremor_threshold,
+    )
     _app.state.capture = state
 
     def _target() -> None:
         try:
-            run_capture(camera_index=CAMERA_INDEX, on_target=state.on_target)
+            run_capture(camera_index=settings.camera_index, on_target=state.on_target)
         except Exception:
             log.exception("capture thread crashed")
 
@@ -93,7 +97,7 @@ def create_app() -> FastAPI:
     async def ws_tremor(ws: WebSocket) -> None:
         await ws.accept()
         state: CaptureState = ws.app.state.capture
-        interval = 1.0 / WS_RATE_HZ
+        interval = 1.0 / settings.ws_rate_hz
         try:
             while ws.client_state == WebSocketState.CONNECTED:
                 payload = state.snapshot()
