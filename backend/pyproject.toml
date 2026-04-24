@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cvuia-backend"
+version = "0.1.0"
+description = "Tremor detection + WebSocket streaming for CVUIA"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "tanayvin1216" }]
+dependencies = [
+  "opencv-python>=4.10,<5.0",
+  "mediapipe>=0.10.18,<0.11",
+  "numpy>=1.26,<2.0",
+  "scipy>=1.14,<2.0",
+  "fastapi>=0.115,<0.120",
+  "uvicorn[standard]>=0.32,<0.40",
+  "websockets>=13.1,<14",
+  "pydantic>=2.9,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<0.30",
+  "ruff>=0.7,<1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
