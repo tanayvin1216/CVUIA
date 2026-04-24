@@ -1,4 +1,15 @@
+import { TremorProvider, useTremor } from "@/context/TremorContext";
+
 export default function App() {
+  return (
+    <TremorProvider>
+      <AppShell />
+    </TremorProvider>
+  );
+}
+
+function AppShell() {
+  const { connected, level, hand } = useTremor();
   return (
     <main className="min-h-full px-8 py-12 md:px-16 md:py-20">
       <header className="mb-12 max-w-4xl">
@@ -10,13 +21,12 @@ export default function App() {
         </h1>
         <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink/75">
           A side-mounted webcam watches the user&rsquo;s hand. The UI scales, spaces out,
-          and smooths input in response to hand tremor &mdash; making the interface usable
-          when the user&rsquo;s pointer isn&rsquo;t steady.
+          and smooths input in response to hand tremor.
         </p>
       </header>
       <section className="font-mono text-sm text-calm">
-        frontend scaffolding in progress &mdash; number pad + debug panel land in steps
-        26&ndash;33.
+        ws: {connected ? "connected" : "…disconnected"} &middot; level: {level.toFixed(2)}{" "}
+        &middot; hand: {hand ?? "none"}
       </section>
     </main>
   );
