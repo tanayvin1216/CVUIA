@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 
 import { AdaptiveButton } from "@/components/AdaptiveButton";
 import { useTremor } from "@/context/TremorContext";
+import { useAdaptiveDebounce } from "@/hooks/useAdaptiveDebounce";
 
 const MAX_LENGTH = 12;
 const BASE_GAP_REM = 0.75; // corresponds to gap-3
@@ -33,7 +34,7 @@ export function NumberPad() {
   const { level } = useTremor();
   const gapRem = BASE_GAP_REM * (1 + (MAX_GAP_MULTIPLIER - 1) * level);
 
-  const press = useCallback((key: Key) => {
+  const rawPress = useCallback((key: Key) => {
     setBuffer((prev) => {
       if (key.kind === "clear") return "";
       if (key.kind === "back") return prev.slice(0, -1);
@@ -44,6 +45,7 @@ export function NumberPad() {
       return prev.length < MAX_LENGTH ? prev + key.value : prev;
     });
   }, []);
+  const press = useAdaptiveDebounce(rawPress);
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
