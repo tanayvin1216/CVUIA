@@ -1,8 +1,8 @@
-"""Webcam capture loop.
+"""Webcam capture loop + MediaPipe inference.
 
-Step 7 (this commit): open the default camera with OpenCV, display frames in a
-debug window, overlay FPS, exit on 'q'. MediaPipe + tremor analysis are layered
-on top in subsequent commits.
+Step 8 (this commit): integrates the HandTracker — each frame is converted to
+RGB, passed to the tracker, and the number of detected hands is logged for
+sanity-checking. Drawing the landmarks on the debug window is step 9.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ import logging
 import time
 
 import cv2
+
+from app.hand_tracker import HandTracker
 
 log = logging.getLogger(__name__)
 
@@ -23,34 +25,44 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
     last_tick = time.perf_counter()
     fps_ema = 0.0
     ema_alpha = 0.1
+    start = time.perf_counter()
 
     try:
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                log.warning("dropped frame")
-                continue
+        with HandTracker() as tracker:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    log.warning("dropped frame")
+                    continue
 
-            now = time.perf_counter()
-            dt = now - last_tick
-            last_tick = now
-            instant_fps = 1.0 / dt if dt > 0 else 0.0
-            fps_ema = instant_fps if fps_ema == 0.0 else (1 - ema_alpha) * fps_ema + ema_alpha * instant_fps
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                timestamp_ms = int((time.perf_counter() - start) * 1000)
+                hands = tracker.process(rgb, timestamp_ms)
 
-            cv2.putText(
-                frame,
-                f"{fps_ema:5.1f} fps",
-                (12, 28),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (50, 220, 120),
-                2,
-                cv2.LINE_AA,
-            )
+                now = time.perf_counter()
+                dt = now - last_tick
+                last_tick = now
+                instant_fps = 1.0 / dt if dt > 0 else 0.0
+                fps_ema = (
+                    instant_fps
+                    if fps_ema == 0.0
+                    else (1 - ema_alpha) * fps_ema + ema_alpha * instant_fps
+                )
 
-            cv2.imshow(window_name, frame)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+                cv2.putText(
+                    frame,
+                    f"{fps_ema:5.1f} fps  hands={len(hands)}",
+                    (12, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (50, 220, 120),
+                    2,
+                    cv2.LINE_AA,
+                )
+
+                cv2.imshow(window_name, frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
     finally:
         cap.release()
         cv2.destroyAllWindows()

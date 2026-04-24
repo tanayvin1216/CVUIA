@@ -28,8 +28,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # MediaPipe model cache
-*.task
-!configs/*.task
+backend/models/*.task
 
 # Env
 .env
