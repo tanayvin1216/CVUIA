@@ -1,3 +1,4 @@
+import { NumberPad } from "@/components/NumberPad";
 import { TremorProvider, useTremor } from "@/context/TremorContext";
 
 export default function App() {
@@ -24,9 +25,17 @@ function AppShell() {
           and smooths input in response to hand tremor.
         </p>
       </header>
-      <section className="font-mono text-sm text-calm">
-        ws: {connected ? "connected" : "…disconnected"} &middot; level: {level.toFixed(2)}{" "}
-        &middot; hand: {hand ?? "none"}
+
+      <section className="grid gap-16 lg:grid-cols-[auto_1fr]">
+        <NumberPad />
+        <aside className="space-y-2 font-mono text-sm text-calm">
+          <div>ws · {connected ? "connected" : "disconnected"}</div>
+          <div>level · {level.toFixed(2)}</div>
+          <div>hand · {hand ?? "none"}</div>
+          <p className="max-w-xs pt-4 text-ink/50">
+            Adaptive size, spacing, debounce, and smoothing land in steps 27&ndash;30.
+          </p>
+        </aside>
       </section>
     </main>
   );
