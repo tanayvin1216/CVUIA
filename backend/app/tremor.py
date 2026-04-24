@@ -1,8 +1,9 @@
 """Tremor analyzer.
 
-Step 12 (this commit): scaffolding — a time-windowed rolling buffer of tracked
-fingertip positions. Metric computation (RMS, normalization, FFT) arrives in
-steps 13-15.
+Step 13 (this commit): compute the RMS magnitude of the detrended fingertip
+trajectory over the rolling window. Linear detrend (scipy.signal.detrend)
+removes DC offset and slow drift, leaving the oscillatory component that
+characterizes a tremor. Normalization + FFT come in the next two commits.
 """
 
 from __future__ import annotations
@@ -10,7 +11,12 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 
+import numpy as np
+from scipy.signal import detrend
+
 from app.hand_tracker import TargetPoint
+
+MIN_SAMPLES_FOR_METRICS = 10
 
 
 @dataclass(frozen=True)
@@ -64,13 +70,25 @@ class TremorAnalyzer:
         self._samples.clear()
 
     def metrics(self) -> TremorMetrics:
-        """Scaffold — returns zeros until real analysis is wired in step 13+."""
+        """Compute RMS magnitude of the detrended trajectory."""
         if not self._samples:
             return TremorMetrics(level=0.0, magnitude=0.0, frequency=0.0, hand=None, samples=0)
+
+        hand = self._samples[-1].hand
+        n = len(self._samples)
+        if n < MIN_SAMPLES_FOR_METRICS:
+            return TremorMetrics(level=0.0, magnitude=0.0, frequency=0.0, hand=hand, samples=n)
+
+        xs = np.fromiter((s.x for s in self._samples), dtype=np.float32, count=n)
+        ys = np.fromiter((s.y for s in self._samples), dtype=np.float32, count=n)
+        dx = detrend(xs, type="linear")
+        dy = detrend(ys, type="linear")
+        magnitude = float(np.sqrt(np.mean(dx * dx + dy * dy)))
+
         return TremorMetrics(
-            level=0.0,
-            magnitude=0.0,
-            frequency=0.0,
-            hand=self._samples[-1].hand,
-            samples=len(self._samples),
+            level=0.0,  # normalized level is wired in step 19 alongside env config
+            magnitude=magnitude,
+            frequency=0.0,  # FFT arrives in step 15
+            hand=hand,
+            samples=n,
         )
