@@ -16,10 +16,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-import mediapipe as mp
 import numpy as np
-from mediapipe.tasks import python as mp_python
-from mediapipe.tasks.python import vision as mp_vision
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +84,12 @@ class HandTracker:
     """Synchronous wrapper around mp.tasks.vision.HandLandmarker in VIDEO mode."""
 
     def __init__(self, num_hands: int = 2, min_detection_confidence: float = 0.5) -> None:
+        # Lazy imports: module loads without mediapipe so the pure-Python types
+        # below (and the TremorAnalyzer tests) remain importable in environments
+        # where mediapipe isn't installed.
+        from mediapipe.tasks import python as mp_python
+        from mediapipe.tasks.python import vision as mp_vision
+
         model_path = ensure_model()
         base_options = mp_python.BaseOptions(model_asset_path=str(model_path))
         options = mp_vision.HandLandmarkerOptions(
@@ -100,6 +103,8 @@ class HandTracker:
         self._landmarker = mp_vision.HandLandmarker.create_from_options(options)
 
     def process(self, frame_rgb: np.ndarray, timestamp_ms: int) -> list[HandObservation]:
+        import mediapipe as mp
+
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
         result = self._landmarker.detect_for_video(mp_image, timestamp_ms)
         return _to_observations(result)
