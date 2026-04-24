@@ -1,4 +1,5 @@
 import { NumberPad } from "@/components/NumberPad";
+import { SmoothTracker } from "@/components/SmoothTracker";
 import { TremorProvider, useTremor } from "@/context/TremorContext";
 
 export default function App() {
@@ -22,18 +23,20 @@ function AppShell() {
         </h1>
         <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink/75">
           A side-mounted webcam watches the user&rsquo;s hand. The UI scales, spaces out,
-          and smooths input in response to hand tremor.
+          smooths input, and debounces clicks in response to hand tremor.
         </p>
       </header>
 
-      <section className="grid gap-16 lg:grid-cols-[auto_1fr]">
+      <section className="grid gap-12 lg:grid-cols-[auto_1fr_auto]">
         <NumberPad />
+        <SmoothTracker />
         <aside className="space-y-2 font-mono text-sm text-calm">
           <div>ws · {connected ? "connected" : "disconnected"}</div>
           <div>level · {level.toFixed(2)}</div>
           <div>hand · {hand ?? "none"}</div>
           <p className="max-w-xs pt-4 text-ink/50">
-            Adaptive size, spacing, debounce, and smoothing land in steps 27&ndash;30.
+            Debug panel with live meter, frequency, and manual override slider lands
+            in the next three commits.
           </p>
         </aside>
       </section>
