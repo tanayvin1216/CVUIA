@@ -1,15 +1,14 @@
 """Webcam capture loop + MediaPipe inference + debug overlay.
 
-Step 11 (this commit): decouple capture from downstream analysis. run_capture
-now accepts an optional callback invoked every frame with the current target
-point (or None), a monotonic timestamp, and a frame index. The TremorAnalyzer
-(step 12) and the WebSocket broadcaster (step 18) will plug in here without
-further changes to the loop.
+Step 20 (this commit): accept a threading.Event to signal shutdown so the
+capture thread exits cleanly on uvicorn SIGINT/SIGTERM — releasing the
+camera and destroying the cv2 window rather than leaking them.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 
@@ -29,6 +28,7 @@ def run_capture(
     camera_index: int = 0,
     window_name: str = "CVUIA — capture",
     on_target: FrameCallback | None = None,
+    stop_event: threading.Event | None = None,
 ) -> None:
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
@@ -43,6 +43,9 @@ def run_capture(
     try:
         with HandTracker() as tracker:
             while True:
+                if stop_event is not None and stop_event.is_set():
+                    log.info("stop_event set, exiting capture loop")
+                    break
                 ok, frame = cap.read()
                 if not ok:
                     log.warning("dropped frame")

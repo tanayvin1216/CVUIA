@@ -62,11 +62,17 @@ async def lifespan(_app: FastAPI):
         window_seconds=settings.window_seconds,
         threshold=settings.tremor_threshold,
     )
+    stop_event = threading.Event()
     _app.state.capture = state
+    _app.state.stop_event = stop_event
 
     def _target() -> None:
         try:
-            run_capture(camera_index=settings.camera_index, on_target=state.on_target)
+            run_capture(
+                camera_index=settings.camera_index,
+                on_target=state.on_target,
+                stop_event=stop_event,
+            )
         except Exception:
             log.exception("capture thread crashed")
 
@@ -76,7 +82,13 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
-        log.info("shutting down (capture thread is daemon; cv2 window closes with process)")
+        log.info("shutdown signaled; stopping capture thread")
+        stop_event.set()
+        thread.join(timeout=3.0)
+        if thread.is_alive():
+            log.warning("capture thread did not exit within 3s; leaving to daemon cleanup")
+        else:
+            log.info("capture thread exited cleanly")
 
 
 def create_app() -> FastAPI:
