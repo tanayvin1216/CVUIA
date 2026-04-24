@@ -1,8 +1,11 @@
 import { useCallback, useState } from "react";
 
 import { AdaptiveButton } from "@/components/AdaptiveButton";
+import { useTremor } from "@/context/TremorContext";
 
 const MAX_LENGTH = 12;
+const BASE_GAP_REM = 0.75; // corresponds to gap-3
+const MAX_GAP_MULTIPLIER = 1.5;
 
 type Key =
   | { kind: "digit"; value: string }
@@ -27,6 +30,8 @@ const KEYS: Key[] = [
 
 export function NumberPad() {
   const [buffer, setBuffer] = useState("");
+  const { level } = useTremor();
+  const gapRem = BASE_GAP_REM * (1 + (MAX_GAP_MULTIPLIER - 1) * level);
 
   const press = useCallback((key: Key) => {
     setBuffer((prev) => {
@@ -49,7 +54,10 @@ export function NumberPad() {
         {buffer || <span className="text-ink/30">—</span>}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div
+        className="grid grid-cols-3 transition-[gap] duration-200 ease-out"
+        style={{ gap: `${gapRem}rem` }}
+      >
         {KEYS.map((key, idx) => (
           <AdaptiveButton
             key={keyId(key, idx)}
