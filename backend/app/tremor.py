@@ -1,9 +1,10 @@
 """Tremor analyzer.
 
-Step 13 (this commit): compute the RMS magnitude of the detrended fingertip
-trajectory over the rolling window. Linear detrend (scipy.signal.detrend)
-removes DC offset and slow drift, leaving the oscillatory component that
-characterizes a tremor. Normalization + FFT come in the next two commits.
+Step 14 (this commit): divide the RMS magnitude by the median hand-bbox
+diagonal across the window. Both are in normalized MediaPipe coordinates,
+so the result is dimensionless and scale-invariant — a hand held close to
+the camera and a hand held far away produce the same number for the same
+amount of shake.
 """
 
 from __future__ import annotations
@@ -81,9 +82,12 @@ class TremorAnalyzer:
 
         xs = np.fromiter((s.x for s in self._samples), dtype=np.float32, count=n)
         ys = np.fromiter((s.y for s in self._samples), dtype=np.float32, count=n)
+        diags = np.fromiter((s.bbox_diag for s in self._samples), dtype=np.float32, count=n)
         dx = detrend(xs, type="linear")
         dy = detrend(ys, type="linear")
-        magnitude = float(np.sqrt(np.mean(dx * dx + dy * dy)))
+        rms = float(np.sqrt(np.mean(dx * dx + dy * dy)))
+        diag_median = float(np.median(diags))
+        magnitude = rms / diag_median if diag_median > 1e-6 else 0.0
 
         return TremorMetrics(
             level=0.0,  # normalized level is wired in step 19 alongside env config
