@@ -30,6 +30,9 @@ MODEL_URL = (
 MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "hand_landmarker.task"
 
 
+INDEX_FINGERTIP = 8
+
+
 @dataclass(frozen=True)
 class HandObservation:
     """One detected hand for a single frame."""
@@ -37,6 +40,38 @@ class HandObservation:
     handedness: str  # "Left" or "Right" (as labeled by MediaPipe, mirrored for selfie view)
     score: float
     landmarks: np.ndarray  # shape (21, 3), normalized [0, 1] x,y,z
+
+
+@dataclass(frozen=True)
+class TargetPoint:
+    """Tracked point on the dominant hand, used by the tremor analyzer."""
+
+    x: float  # normalized [0, 1]
+    y: float  # normalized [0, 1]
+    bbox_diag: float  # normalized — diagonal of hand bbox; used for scale-invariant tremor
+    handedness: str
+
+
+def select_target(hands: list[HandObservation], prefer: str = "Right") -> TargetPoint | None:
+    """Pick the dominant hand's index fingertip + bbox diagonal.
+
+    Strategy: prefer the hand labeled `prefer` (default "Right"); if absent, use the
+    highest-score hand. Returns None when no hands are detected.
+    """
+    if not hands:
+        return None
+    chosen = next((h for h in hands if h.handedness == prefer), None)
+    if chosen is None:
+        chosen = max(hands, key=lambda h: h.score)
+    tip = chosen.landmarks[INDEX_FINGERTIP]
+    xy = chosen.landmarks[:, :2]
+    diag = float(np.linalg.norm(xy.max(axis=0) - xy.min(axis=0)))
+    return TargetPoint(
+        x=float(tip[0]),
+        y=float(tip[1]),
+        bbox_diag=diag,
+        handedness=chosen.handedness,
+    )
 
 
 def ensure_model(path: Path = MODEL_PATH) -> Path:

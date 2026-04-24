@@ -1,7 +1,8 @@
 """Webcam capture loop + MediaPipe inference + debug overlay.
 
-Step 9 (this commit): render the 21-point hand skeleton and bounding box on
-the cv2 debug window using overlays.draw_hands.
+Step 10 (this commit): select the dominant hand's index fingertip as the
+tracked target point. Render a highlighted marker on it so it's obvious which
+point feeds the tremor analyzer later.
 """
 
 from __future__ import annotations
@@ -11,10 +12,12 @@ import time
 
 import cv2
 
-from app.hand_tracker import HandTracker
+from app.hand_tracker import HandTracker, select_target
 from app.overlays import draw_hands
 
 log = logging.getLogger(__name__)
+
+TARGET_COLOR = (0, 220, 255)
 
 
 def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -> None:
@@ -39,6 +42,13 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
                 timestamp_ms = int((time.perf_counter() - start) * 1000)
                 hands = tracker.process(rgb, timestamp_ms)
                 draw_hands(frame, hands)
+
+                target = select_target(hands)
+                if target is not None:
+                    h, w = frame.shape[:2]
+                    tx, ty = int(target.x * w), int(target.y * h)
+                    cv2.circle(frame, (tx, ty), 10, TARGET_COLOR, 2, cv2.LINE_AA)
+                    cv2.circle(frame, (tx, ty), 2, TARGET_COLOR, -1, cv2.LINE_AA)
 
                 now = time.perf_counter()
                 dt = now - last_tick
