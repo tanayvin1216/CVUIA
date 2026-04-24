@@ -1,26 +1,35 @@
 """Webcam capture loop + MediaPipe inference + debug overlay.
 
-Step 10 (this commit): select the dominant hand's index fingertip as the
-tracked target point. Render a highlighted marker on it so it's obvious which
-point feeds the tremor analyzer later.
+Step 11 (this commit): decouple capture from downstream analysis. run_capture
+now accepts an optional callback invoked every frame with the current target
+point (or None), a monotonic timestamp, and a frame index. The TremorAnalyzer
+(step 12) and the WebSocket broadcaster (step 18) will plug in here without
+further changes to the loop.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 
 import cv2
 
-from app.hand_tracker import HandTracker, select_target
+from app.hand_tracker import HandTracker, TargetPoint, select_target
 from app.overlays import draw_hands
 
 log = logging.getLogger(__name__)
 
 TARGET_COLOR = (0, 220, 255)
 
+FrameCallback = Callable[[TargetPoint | None, float, int], None]
 
-def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -> None:
+
+def run_capture(
+    camera_index: int = 0,
+    window_name: str = "CVUIA — capture",
+    on_target: FrameCallback | None = None,
+) -> None:
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
         raise RuntimeError(f"could not open camera index {camera_index}")
@@ -29,6 +38,7 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
     fps_ema = 0.0
     ema_alpha = 0.1
     start = time.perf_counter()
+    frame_idx = 0
 
     try:
         with HandTracker() as tracker:
@@ -39,7 +49,8 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
                     continue
 
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                timestamp_ms = int((time.perf_counter() - start) * 1000)
+                elapsed_s = time.perf_counter() - start
+                timestamp_ms = int(elapsed_s * 1000)
                 hands = tracker.process(rgb, timestamp_ms)
                 draw_hands(frame, hands)
 
@@ -49,6 +60,12 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
                     tx, ty = int(target.x * w), int(target.y * h)
                     cv2.circle(frame, (tx, ty), 10, TARGET_COLOR, 2, cv2.LINE_AA)
                     cv2.circle(frame, (tx, ty), 2, TARGET_COLOR, -1, cv2.LINE_AA)
+
+                if on_target is not None:
+                    try:
+                        on_target(target, elapsed_s, frame_idx)
+                    except Exception:
+                        log.exception("on_target callback raised")
 
                 now = time.perf_counter()
                 dt = now - last_tick
@@ -74,6 +91,8 @@ def run_capture(camera_index: int = 0, window_name: str = "CVUIA — capture") -
                 cv2.imshow(window_name, frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
+
+                frame_idx += 1
     finally:
         cap.release()
         cv2.destroyAllWindows()
